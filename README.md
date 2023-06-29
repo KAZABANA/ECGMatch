@@ -5,13 +5,14 @@ Semi-Supervised Learning for Multi-Label Cardiovascular Diseases Prediction: A M
 * [arxiv](https://arxiv.org/abs/2306.10494)
 
 # Preliminaries
-* Prepare dataset: [SEED](https://bcmi.sjtu.edu.cn/~seed/index.html) and [SEED-IV](https://bcmi.sjtu.edu.cn/~seed/index.html)
+* Prepare dataset: [Physionet datasets]([https://bcmi.sjtu.edu.cn/~seed/index.html](https://physionet.org/content/challenge-2021/1.0.3/))
 
 # Training 
-* EEGMatch model definition file: model_EEGMatch.py 
-* Pipeline of the EEGMatch: implementation_EEGMatch.py
-* implementation of domain adversarial training: Adversarial_DG.py
-
+* model definition file: model_AIMT.py 
+* main function: main.py
+* data preprocess and loading: dataloading.py
+* algorithm: training_code.py
+* 
 # Citation
 @misc{zhou2023semisupervised,
       title={Semi-Supervised Learning for Multi-Label Cardiovascular Diseases Prediction:A Multi-Dataset Study}, 

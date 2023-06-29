@@ -8,7 +8,7 @@ Semi-Supervised Learning for Multi-Label Cardiovascular Diseases Prediction: A M
 * Prepare dataset: [Physionet datasets]([https://bcmi.sjtu.edu.cn/~seed/index.html](https://physionet.org/content/challenge-2021/1.0.3/))
 
 # Training 
-* model definition file: model_AIMT.py 
+* model definition file: model_code.py 
 * main function: main.py
 * data preprocess and loading: dataloading.py
 * algorithm: training_code.py

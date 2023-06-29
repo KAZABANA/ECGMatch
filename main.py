@@ -272,9 +272,6 @@ def exp_mixdataset(ratio,seed):
         ema_flag='noema'
     print(ema_flag)
     test_list = []
-    args.strong_neighbor = True
-    args.weak_neighbor = False
-    args.teacher = True
     args.semi_config = '_ECGmatch'
     for i in range(5):
         for j in range(5):

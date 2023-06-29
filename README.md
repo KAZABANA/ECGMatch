@@ -2,7 +2,6 @@ Semi-Supervised Learning for Multi-Label Cardiovascular Diseases Prediction: A M
 =
 * A Pytorch implementation of our under reviewed paper 
 Semi-Supervised Learning for Multi-Label Cardiovascular Diseases Prediction: A Multi-Dataset Study
-=
 * [arxiv](https://arxiv.org/abs/2306.10494)
 # Installation:
 

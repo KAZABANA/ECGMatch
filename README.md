@@ -12,7 +12,6 @@ Semi-Supervised Learning for Multi-Label Cardiovascular Diseases Prediction: A M
 * main function: main.py
 * data preprocess and loading: dataloading.py
 * algorithm: training_code.py
-* 
 # Citation
 @misc{zhou2023semisupervised,
       title={Semi-Supervised Learning for Multi-Label Cardiovascular Diseases Prediction:A Multi-Dataset Study}, 

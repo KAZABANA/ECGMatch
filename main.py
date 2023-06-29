@@ -279,8 +279,8 @@ def exp_mixdataset(ratio,seed):
     for i in range(5):
         for j in range(5):
             args.semi_config = '_ECGmatch'
-            args.Semi_loss_weight = 2*i/5+0.4
-            args.relationship_weight = 2*j/5+0.4
+            args.Semi_loss_weight = 2*i/5
+            args.relationship_weight = 2*j/5
             args.batch_size=64
             args.unlabel_amount_coeff=2
             print(args.Semi_loss_weight)

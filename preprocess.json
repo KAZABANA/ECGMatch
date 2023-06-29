@@ -1,0 +1,8 @@
+{
+"sample_rate": 500,
+"filter_highpass": [],
+"filter_bandpass": [1.0,47.0],
+"filter_lowpass": [],
+"filter_notch": [],
+"scaler": "standard"
+}

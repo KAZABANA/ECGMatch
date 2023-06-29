@@ -110,7 +110,6 @@ def semi_supervised_learning_ECGmatch(dataset_name,semi_config,model,loader_trai
     label_iter = iter(loader_train)
     unlabel_iter = iter(loader_ULtrain)
     K=args.K
-    dataset_name=dataset_name+'testing'
     dataset_name=dataset_name+args.similarity
     early_stopping = EarlyStopping(20, verbose=True,dataset_name=dataset_name,model_cofig=semi_config,delta=0,args=args)#15
     

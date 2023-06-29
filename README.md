@@ -3,14 +3,6 @@ Semi-Supervised Learning for Multi-Label Cardiovascular Diseases Prediction: A M
 * A Pytorch implementation of our under reviewed paper 
 Semi-Supervised Learning for Multi-Label Cardiovascular Diseases Prediction: A Multi-Dataset Study
 * [arxiv](https://arxiv.org/abs/2306.10494)
-# Installation:
-
-* Python 3.7
-* Pytorch 1.3.1
-* NVIDIA CUDA 9.2
-* Numpy 1.20.3
-* Scikit-learn 0.23.2
-* scipy 1.3.1
 
 # Preliminaries
 * Prepare dataset: [SEED](https://bcmi.sjtu.edu.cn/~seed/index.html) and [SEED-IV](https://bcmi.sjtu.edu.cn/~seed/index.html)

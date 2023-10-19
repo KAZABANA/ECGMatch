@@ -7,6 +7,12 @@ import numpy as np
 from typing import Optional
 from torch.optim.optimizer import Optimizer
 
+## Class NN : backbones for all the SSL models. The backbone architecture is modified from: 
+## P. Nejedly, A. Ivora, R. Smisek, I. Viscor, Z. Koscova, P. Jurak, and F. Plesinger, “Classification of ECG using ensemble of residual
+## CNNs with attention mechanism,” in 2021 Computing in Cardiology (CinC), vol. 48. IEEE, 2021, pp. 1–4.
+
+
+## class tar_augmentation : ECGAugment 
 
 class MyResidualBlock(nn.Module):
     def __init__(self,complexity,downsample):

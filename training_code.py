@@ -8,7 +8,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import os
-from model_code_AIMT import NN,ModelEma,tar_augmentation,StepwiseLR
+from model_code import NN,ModelEma,tar_augmentation,StepwiseLR
 from tqdm import tqdm
 from pytorchtools import EarlyStopping
 from evaluation import print_result,find_thresholds

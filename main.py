@@ -504,13 +504,13 @@ def exp_PTB_XL(ratio,seed,root,K=5):
 if __name__ == '__main__':
     project_root_path = os.getcwd()
     # seed=20
-    # exp_PTB_XL(0.05,seed,project_root_path)
+    # exp_PTB_XL(0.05,seed,project_root_path)         ## using the annotation scheme of the PTB-XL database
 
     # seed=20
-    # exp_mixdataset(0.01,seed,project_root_path,K=6)
+    # exp_mixdataset(0.01,seed,project_root_path,K=6) ## mix-dataset protocol
 
     seed=20
-    exp_withindataset(0.05,seed,project_root_path)
+    exp_withindataset(0.05,seed,project_root_path)    ## within-dataset protocol
 
     # seed=20
-    # exp_crossdataset(0.01,seed,project_root_path)#
+    # exp_crossdataset(0.01,seed,project_root_path)   ## cross-dataset protocol

@@ -6,12 +6,9 @@ Created on Fri Nov  4 16:39:27 2022
 """
 
 from sklearn.metrics import roc_auc_score, hamming_loss,label_ranking_loss,accuracy_score,precision_recall_curve
-from sklearn.neighbors import KernelDensity
 from sklearn.metrics import coverage_error
 import numpy as np
-import matplotlib.pyplot as plt
-import os
-from scipy.signal import find_peaks
+
 def challenge_metrics(y_true, y_pred, beta1=2, beta2=2, class_weights=None, single=True):
     f_beta = 0
     g_beta = 0
@@ -19,6 +16,8 @@ def challenge_metrics(y_true, y_pred, beta1=2, beta2=2, class_weights=None, sing
         sample_weights = np.ones(y_true.sum(axis=1).shape)
     else:
         sample_weights = y_true.sum(axis=1)
+    f_beta_each_class = []
+    g_beta_each_class = []
     for classi in range(y_true.shape[1]):
         y_truei, y_predi = y_true[:,classi], y_pred[:,classi]
         TP, FP, TN, FN = 0.,0.,0.,0.
@@ -36,7 +35,10 @@ def challenge_metrics(y_true, y_pred, beta1=2, beta2=2, class_weights=None, sing
         g_beta_i = (TP)/(TP+FP+beta2*FN)
         f_beta += f_beta_i
         g_beta += g_beta_i
-    return f_beta/y_true.shape[1], g_beta/y_true.shape[1]
+        f_beta_each_class.append(f_beta_i)
+        g_beta_each_class.append(g_beta_i)
+    return f_beta/y_true.shape[1], g_beta/y_true.shape[1],f_beta_each_class,g_beta_each_class
+
 def average_precision(output, target):
     epsilon = 1e-8
 
@@ -56,7 +58,6 @@ def average_precision(output, target):
 
     return precision_at_i
 
-
 def mAP(targs, preds):
     """Returns the model's average precision for each class
     Return:
@@ -73,21 +74,27 @@ def mAP(targs, preds):
         targets = targs[:, k]
         # compute average precision
         ap[k] = average_precision(scores, targets)
-    return 100 * ap.mean()
+    return 100 * ap.mean(), 100*ap
+
 def evaluation(label,predict,thres=0.5):
     ## logit-based
-    auc=roc_auc_score(label,predict, average='macro')
+    auc,auc_each_class=roc_auc_score(label,predict, average='macro'),roc_auc_score(label, predict, average=None)
     rankingloss=label_ranking_loss(label,predict)
     Coverage=coverage_error(label,predict)
-    Map_value=mAP(label,predict)
+    Map_value,map_each_class=mAP(label,predict)
     ## one-hot-based
     for i in range(predict.shape[1]):
         predict[:, i] = (predict[:, i] > thres[i]) + 0.0
     # predict=(predict>thres)+0
     hammingloss=hamming_loss(label,predict)
     acc=accuracy_score(label,predict)
-    F1score_b,Gscore_b=challenge_metrics(label,predict)   
-    performance_table={'auc':auc,'ranking':rankingloss,'hamming':hammingloss,'acc':acc,'F1score_b':F1score_b,'Gscore_b':Gscore_b,'Map_value':Map_value,'Coverage':Coverage}
+    F1score_b,Gscore_b,f_beta_each_class,g_beta_each_class=challenge_metrics(label,predict)   
+    F1score,_,f_each_class,_=challenge_metrics(label,predict,beta1=1,beta2=1)   
+    performance_table={'auc':auc,'ranking':rankingloss,'hamming':hammingloss,'acc':acc,'F1score_b':F1score_b,
+                       'Gscore_b':Gscore_b,'Map_value':Map_value,'Coverage':Coverage,
+                       'auc_class':auc_each_class,'map_class': map_each_class,
+                       'F1score_b_class':f_beta_each_class,'Gscore_b_class':g_beta_each_class,
+                       'F1score':F1score,'F1score_class':f_each_class}
     return performance_table
 
 def print_result(loss,label,predict,datatype,thres=0.5*np.ones(5)):
@@ -96,8 +103,8 @@ def print_result(loss,label,predict,datatype,thres=0.5*np.ones(5)):
     print(datatype+'_auc: '+str(performance_table['auc']))
     print(datatype+'_ranking: '+str(performance_table['ranking']))
     print(datatype+'_hamming: '+str(performance_table['hamming']))
-    print(datatype+'_acc: '+str(performance_table['acc']))
     print(datatype+'_F1score_b: '+str(performance_table['F1score_b']))
+    print(datatype+'_F1score: '+str(performance_table['F1score']))
     print(datatype+'_Gscore_b: '+str(performance_table['Gscore_b']))
     print(datatype + '_MAPvalue: ' + str(performance_table['Map_value']))
     print(datatype + '_Coverage: ' + str(performance_table['Coverage']))
@@ -115,55 +122,6 @@ def find_thresholds(label,predict,beta=2):
         f1prcT[j] = thr[idx]
     return f1prcT
 
-def threshold_adaptation(predict,band_width=0.05,lam=0.95,initial_threshold=0.5*np.ones(5),initial_kde_threshold=0.5*np.ones(5)):
-#    updated_threshold=[]
-#    ## toy example
-#    predict=np.ones((3000,5))
-#    for i in range(len(intial_threshold)):
-#        predict[:,i]=np.random.beta(0.5,0.5,3000)
-#    file=np.load('baseline_noweightnorm_nonecknorm_ECGmatch_grid_search_cross_dataset_studentstrong_teacher_relationshipfro_withoutfix_weightneigh.npy',allow_pickle=True)[15][3]
-#    label=np.load('ground_truth_WFDB_Ga_threshold_adaptation_super.npy')
-#    predict=np.load('logit_WFDB_Ga_threshold_adaptation_super.npy')
-#    predict=np.load('predict_WFDB_Ga_threshold_adaptation_super.npy')
-#    intial_threshold=file['threshold']
-    kde_threshold=np.zeros_like(initial_threshold)
-    for i in range(len(initial_threshold)):
-        score_distribution=predict[:,i]
-        score_distribution=score_distribution.reshape(len(score_distribution),1)
-        kde = KernelDensity(kernel='epanechnikov', bandwidth=band_width).fit(score_distribution)
-        logit_samples=np.linspace(0,1,len(score_distribution))
-#        logit_samples=np.linspace(max(score_distribution),min(score_distribution),len(score_distribution))
-        logit_samples=logit_samples.reshape(len(score_distribution),1)
-        log_density = kde.score_samples(logit_samples)
-        plt.subplot(5,1,i+1)
-        plt.plot(logit_samples,np.exp(log_density))
-        peak_location=find_peaks(log_density)[0]
-        if len(peak_location)<2:
-            kde_threshold[i]=initial_threshold[i]
-            continue
-        cut_log_density=log_density[peak_location[0]:peak_location[-1]]
-        cut_logit_samples=logit_samples[peak_location[0]:peak_location[-1]]
-        kde_threshold[i]=cut_logit_samples[np.argmin(cut_log_density)]
-    final_threshold=lam*initial_threshold+(1-lam)*kde_threshold
-    final_threshold=initial_threshold*(kde_threshold/initial_kde_threshold)
-#    threshold=find_thresholds(label,predict,beta=2)
-#    predict=np.load('predict_WFDB_ChapmanShaoxing_threshold_adaptation_super.npy')
-#    print_result(1,label,predict,'a',thres=final_threshold)
-#    print_result(1,label,predict,'a',thres=intial_threshold)
-#    print_result(1,label,predict,'a',thres=threshold)
-    return final_threshold,kde_threshold
 
-#        for iteration in range(max_iter):
-#            density_current=kde.score_samples(intial_thres)
-#        plt.plot(logit_samples,np.exp(log_density))
-    #    label_distribution=label[:,i]
-#        num=plt.hist(label_distribution)  num=plt.hist(score_distribution)
-
-    
-    
-    
-    
-    
-    
     
     

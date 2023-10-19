@@ -7,19 +7,19 @@ Created on Tue Dec  6 11:58:27 2022
 import numpy as np
 import torch
 import torch.nn.functional as F
-from helper_code import *
-from preprocess import *
 import os
-from model_code import NN,ModelEma,tar_augmentation,StepwiseLR
+from model_code_AIMT import NN,ModelEma,tar_augmentation,StepwiseLR
 from tqdm import tqdm
 from pytorchtools import EarlyStopping
 from evaluation import print_result,find_thresholds
-from AsymmetricLoss import AsymmetricLoss_dynamic
-
+import torch.nn as nn
 def model_prepare(num_class=5):
     num_leads=12
     model=NN(nOUT=num_class,complexity=128,inputchannel=num_leads)
     # optimizer=torch.optim.Adam(model.parameters(), lr=0.01)
+    #for param in model.parameters():
+    #    if param.dim() > 1:
+    #       nn.init.xavier_uniform_(param)
     return model
 
 def validate(model, valloader,device,iftest=False,threshold=0.5*np.ones(5),iftrain=False,args=None):
@@ -53,8 +53,8 @@ def validate(model, valloader,device,iftest=False,threshold=0.5*np.ones(5),iftra
     valid_result.update({'threshold':threshold})
     return valid_result
 
-def similarity_metrics(score, metrics):
-    eps=0# eps=0 in previous experiment
+def similarity_metrics(score, metrics,num_of_class = 5):
+    eps=1e-6 ## avoid NaN error
     if metrics == 'cosine':
         # calculate cosine similarity
         sim_mat = torch.matmul(score.T, score) / (torch.matmul(torch.norm(score, dim=0).reshape(-1, 1), torch.norm(score, dim=0).reshape(1, -1))+eps)
@@ -70,7 +70,7 @@ def similarity_metrics(score, metrics):
         raise ValueError("Invalid similarity metric specified.")
     return sim_mat
    
-def semi_supervised_learning_ECGmatch(dataset_name,semi_config,model,loader_train,loader_ULtrain,loader_valid,loader_test,device,args):
+def semi_supervised_learning_ECGmatch(dataset_name,semi_config,model,loader_train,loader_ULtrain,loader_valid,loader_test,device,args,positive_weight):
     if args.experiment=='cross_dataset':
         dataset_name='cross_'+dataset_name
     if args.experiment=='mix_dataset' :
@@ -78,16 +78,21 @@ def semi_supervised_learning_ECGmatch(dataset_name,semi_config,model,loader_trai
     if args.experiment=='within_dataset':
         dataset_name='within_'+dataset_name
         
+    #dataset_name=dataset_name+str(int(100*args.label_ratio))    
     ## load the pretrained teacher model (you can pretrain the teacher by setting teacher_pretrain==False and Semi_loss_weight=0,relationship_weight=0)
+    ## if you want to pretrain the teacher model, set teacher_pretrain = False
+    ## note that the teacher model is pretrained on the labeled training data, using BCEloss.
+    
     if args.teacher_pretrain:
-        print('load_teacher')
-        os.chdir('/home/coche/RushuangZhou_Phdstudent/Cinc2021data/result/pretrain_model')
-        model.load_state_dict(torch.load(dataset_name +semi_config+'_'+str(int(0))+'_'+str(int(0))+'_'+'noema'+'_checkpoint_'+str(args.seed)+'_pre.pkl',map_location={'cuda:1': args.device}))
-    loss_save='/home/coche/RushuangZhou_Phdstudent/Cinc2021data/result/run_log/log_p.txt'
-    file_save=open(loss_save,mode='a')
-    file_save.write('\n'+'Semi_loss_weight:'+str(args.Semi_loss_weight)+'_relation_loss_weight:'+str(args.relationship_weight))    
-    file_save.close()
-    print('save_log')
+        print('load_teacher') 
+        os.chdir(args.root+'/Cinc2021data/result/pretrain_model') #pretrain_model,ECGmatch_checkpoint
+        model.load_state_dict(torch.load(dataset_name +'_ECGmatch''_'+str(int(0))+'_'+str(int(0))+'_'+'noema'+'_checkpoint_'+str(args.seed)+'_pre.pkl',map_location={'cuda:3': args.device}))
+
+    dataset_name=dataset_name+'K'+str(args.K)
+    dataset_name=dataset_name+'test'
+    print(dataset_name)
+    
+    
     if args.ema:
         ema_flag='ema'
     else:
@@ -96,6 +101,7 @@ def semi_supervised_learning_ECGmatch(dataset_name,semi_config,model,loader_trai
     unlabel_amount_coeff=args.unlabel_amount_coeff
     print(args.Semi_loss_weight)
     print(args.relationship_weight)
+    ## we recommend SGD optimizer
     if args.Semi_optimizer=='Adam':
         optimizer=torch.optim.Adam(model.get_parameters(),lr=args.Semi_lr_rate,weight_decay=args.Semi_lr_decay)
     elif args.Semi_optimizer=='SGD':
@@ -103,43 +109,49 @@ def semi_supervised_learning_ECGmatch(dataset_name,semi_config,model,loader_trai
     model.to(device)
     iteration = len(loader_train) * args.Semitrain_epoch
     lr_scheduler = StepwiseLR(optimizer, init_lr=args.Semi_lr_rate, gamma=10, decay_rate=0.75, max_iter=iteration)
-    criterion = AsymmetricLoss_dynamic(gamma_neg=0, gamma_pos=0, alpha=np.zeros(1),clip=0.00, disable_torch_grad_focal_loss=True)
-    ## If the class distribution is very imbalance, you can tune the gamma; but in our experiments, we set all the gamma as zero
-    ## in this case, the AsymmetricLoss_dynamic loss is the same as binary cross entropy 
+         
+    criterion = nn.BCELoss()   
+    #  
+    ## If the class distribution is very imbalance, you can use the weighted BCE loss.
+    # bceweight = args.bce_ratio/torch.tensor(positive_weight,device=device)
+    # bceweight = len(bceweight)*bceweight/torch.sum(bceweight)
+    # print(bceweight)
+    # criterion = nn.BCELoss(weight=bceweight)
+    
     train_result_list, ULtrain_result_list,valid_result_list = [], [],[]
     label_iter = iter(loader_train)
     unlabel_iter = iter(loader_ULtrain)
     K=args.K
-    dataset_name=dataset_name+args.similarity
+    
     early_stopping = EarlyStopping(20, verbose=True,dataset_name=dataset_name,model_cofig=semi_config,delta=0,args=args)#15
     
     ## feature and prediction banks initialization
-    fea_bank_L,fea_bank_UL = torch.randn(len(loader_train.dataset), 128),torch.randn(len(loader_ULtrain.dataset), 128)
-    score_bank_L,score_bank_UL = torch.randn(len(loader_train.dataset), args.num_of_class).to(device),torch.randn(len(loader_ULtrain.dataset), args.num_of_class).to(device)
+    fea_bank_L,fea_bank_UL = torch.randn(len(loader_train.dataset), 128).detach().to(device),torch.randn(len(loader_ULtrain.dataset), 128).detach().to(device)
+    score_bank_L,score_bank_UL = torch.randn(len(loader_train.dataset), args.num_of_class).detach().to(device),torch.randn(len(loader_ULtrain.dataset), args.num_of_class).detach().to(device)
     EMA_model=ModelEma(model)
     with torch.no_grad():
         iter_labeled = iter(loader_train)
         for i in range(len(loader_train)):
             model.eval()
-            data = iter_labeled .next()
+            data = next(iter_labeled)
             label  = data[1].float()
             indx = data[-1].detach().clone().cpu().numpy()
             score_bank_L[indx] = label.detach().clone()  # .cpu()
-        relationship_mat_L=similarity_metrics(score_bank_L, args.similarity)
-        print(relationship_mat_L)
+        relationship_mat_L=similarity_metrics(score_bank_L, args.similarity,args.num_of_class)
+        #print(relationship_mat_L)
         relationship_mat_L=torch.clip(relationship_mat_L,0,1)
     with torch.no_grad():
         iter_unlabeled = iter(loader_ULtrain)
         for i in range(len(loader_ULtrain)):
             model.eval()
-            data = iter_unlabeled.next()
+            data = next(iter_unlabeled)
             inputs = data[0].float()
             indx = data[-1].detach().clone().cpu().numpy()
             output = model.bottleneck(model.feature_extraction(inputs))
             output_norm = F.normalize(output)
             outputs = model.classifier(output)
             outputs = outputs.sigmoid()
-            fea_bank_UL[indx] = output_norm.detach().clone().cpu()
+            fea_bank_UL[indx] = output_norm.detach().clone()
             score_bank_UL[indx] = outputs.detach().clone()  # .cpu()
     unlabel_size=batch_size*unlabel_amount_coeff
     print('\n')
@@ -152,11 +164,14 @@ def semi_supervised_learning_ECGmatch(dataset_name,semi_config,model,loader_trai
         model_teacher=EMA_model.module
         
         ## model evaluation and early stopping
-        if current % 50 == 0:
+        ## you can choose to use student model (noema) or teacher model (ema) for validation and testing
+        ## In our experiment, we used the student model.
+        
+        if current % args.interval == 0:
             print('current iter',current)
             print('training')
             if args.ema:
-                training_result=validate(model_teacher, loader_train, device,iftrain=True)
+                training_result=validate(model_teacher, loader_train, device,iftrain=True)#zero for class24
                 valid_result = validate(model_teacher, loader_valid, device)
                 if current>0:
                     early_stopping(1/valid_result[args.metrics], model_teacher)
@@ -166,7 +181,7 @@ def semi_supervised_learning_ECGmatch(dataset_name,semi_config,model,loader_trai
                         print("Early stopping")
                         break
             else:
-                training_result=validate(model, loader_train, device,iftrain=True)
+                training_result=validate(model, loader_train, device,iftrain=True) #zero for class24
                 valid_result = validate(model, loader_valid, device)
                 if current>0:
                     early_stopping(1/valid_result[args.metrics], model)
@@ -175,6 +190,7 @@ def semi_supervised_learning_ECGmatch(dataset_name,semi_config,model,loader_trai
                     if early_stopping.early_stop:
                         print("Early stopping")
                         break
+                    
         ## mini-batch sampling
         try:
             source_data, source_label,src_idx = next(label_iter)
@@ -187,17 +203,17 @@ def semi_supervised_learning_ECGmatch(dataset_name,semi_config,model,loader_trai
             unlabel_iter = iter(loader_ULtrain)
             target_data, _, tar_idx = next(unlabel_iter)
         if len(target_data)!= unlabel_size or len(source_data) != batch_size:
-            print('continue')
+            print('continue') ## drop last mini-batch
             continue
         if len(target_data)!= len(tar_idx) or len(source_data)!= len(src_idx):
             print(len(target_data))
             print(len(tar_idx))
             print('Error')
             break      
+        
         source_data, source_label = source_data.float().to(device), source_label.float().to(device)
         target_data,tar_idx = target_data.float().to(device),tar_idx.long()
         optimizer.zero_grad()
-        
         with torch.no_grad():
             ## ECGAugment
             aug_source_data_weak=tar_augmentation(source_data,'Weak',device)
@@ -209,12 +225,12 @@ def semi_supervised_learning_ECGmatch(dataset_name,semi_config,model,loader_trai
             ## update the banks on the fly
             features_tar = model_teacher.bottleneck(model_teacher.feature_extraction(aug_target_data_weak))
             pred_tar=model_teacher.classifier(features_tar).sigmoid()
-            fea_bank_UL[tar_idx] = F.normalize(features_tar).cpu().detach().clone()
+            fea_bank_UL[tar_idx] = F.normalize(features_tar).detach().clone() # .cpu()
             score_bank_UL[tar_idx] = pred_tar.detach().clone()
             
             ## search K-nearest neighbors for the weak-augented unlabeled data
             features_tar_stud = model.bottleneck(model.feature_extraction(aug_target_data_weak))
-            fea_tar_norm=F.normalize(features_tar_stud).cpu().detach().clone()
+            fea_tar_norm=F.normalize(features_tar_stud).detach().clone()#.cpu()
             distance = fea_tar_norm @ fea_bank_UL.T
             _, idx_near = torch.topk(distance, dim=-1, largest=True, k=K)
             
@@ -233,16 +249,15 @@ def semi_supervised_learning_ECGmatch(dataset_name,semi_config,model,loader_trai
         _, logits_x_ulb_s = logits[batch_size:].chunk(2)
         
         ## compute the supervised loss using labeled samples
-        sup_loss = criterion(logits_x_lb, source_label)
-        
+        sup_loss = criterion(logits_x_lb, source_label) #F.binary_cross_entropy
         ## label correlation alignment
-        relationship_mat_UL=similarity_metrics(logits[batch_size:], args.similarity)
+        relationship_mat_UL=similarity_metrics(logits[batch_size:], args.similarity, args.num_of_class)
         relationship_mat_UL=torch.clip(relationship_mat_UL,0,1)
         relationship_loss=torch.norm(relationship_mat_UL-relationship_mat_L,'fro')
         
         ## compute the unsupervised loss using unlabeled samples
         neighbor_loss = F.binary_cross_entropy(logits_x_ulb_s,score_near_tar.float(),reduction='none')
-            
+
         ## final loss
         if args.neighbor_weight:
             loss = sup_loss+args.Semi_loss_weight*torch.mean(weight*neighbor_loss)+args.relationship_weight*relationship_loss
@@ -250,6 +265,7 @@ def semi_supervised_learning_ECGmatch(dataset_name,semi_config,model,loader_trai
             loss = sup_loss+args.Semi_loss_weight*torch.mean(neighbor_loss)+args.relationship_weight*relationship_loss
             
         loss.backward()
+
         optimizer.step()
         lr_scheduler.step()
         with torch.no_grad():
@@ -260,15 +276,13 @@ def semi_supervised_learning_ECGmatch(dataset_name,semi_config,model,loader_trai
     for epoch in range(len(valid_result_list)):
         valid_f1_list.append(valid_result_list[epoch][args.metrics])
     threshold=valid_result_list[np.argmax(valid_f1_list)]['threshold']
-    os.chdir('/home/coche/RushuangZhou_Phdstudent/Cinc2021data/result')
-    if args.teacher_pretrain:
+    
+    os.chdir(args.root+'/Cinc2021data/result/ECGmatch_checkpoint')
+    if args.teacher_pretrain: 
         model.load_state_dict(torch.load(dataset_name +semi_config+'_'+str(int(10*args.Semi_loss_weight))+'_'+str(int(10*args.relationship_weight))+'_'+ema_flag+'_checkpoint_'+str(args.seed)+'.pkl'))
     else:
         model.load_state_dict(torch.load(dataset_name +semi_config+'_'+str(int(10*args.Semi_loss_weight))+'_'+str(int(10*args.relationship_weight))+'_'+ema_flag+'_checkpoint_'+str(args.seed)+'_pre.pkl'))
-    
     ## testing 
     print('test')
     retrain_test_result = validate(model, loader_test, device,iftest=True,threshold=threshold,args=args)
     return model,retrain_test_result,train_result_list, ULtrain_result_list,valid_result_list
-
-

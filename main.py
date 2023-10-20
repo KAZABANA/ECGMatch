@@ -193,6 +193,7 @@ def exp_withindataset(ratio,seed,root,num_class=5,teacher_pretrain=True):
         print('file_not_existed')
         history=0
     ## hyper-parameter sensitivity analysis Semi_loss_weight=[0,0.4,0.8,1.2,1.6],relationship_weight=[0,0.4,0.8,1.2,1.6]
+    ## if sensitivity analysis is not wanted, a quick experiment can be done by setting Semi_loss_weight=0.8, relationship_weight=1.2
     for i in range(5):
         for j in range(5):
             flag+=1

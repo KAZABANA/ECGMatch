@@ -13,11 +13,12 @@ Semi-Supervised Learning for Multi-Label Cardiovascular Diseases Prediction: A M
 * data preprocess and loading: dataloading.py
 * algorithm: training_code.py
 # Citation
-@misc{zhou2023semisupervised,
-      title={Semi-Supervised Learning for Multi-Label Cardiovascular Diseases Prediction:A Multi-Dataset Study}, 
-      author={Rushuang Zhou and Lei Lu and Zijun Liu and Ting Xiang and Zhen Liang and David A. Clifton and Yining Dong and Yuan-Ting Zhang},
-      year={2023},
-      eprint={2306.10494},
-      archivePrefix={arXiv},
-      primaryClass={eess.SP}
-}
+@ARTICLE{10360273,
+  author={Zhou, Rushuang and Lu, Lei and Liu, Zijun and Xiang, Ting and Liang, Zhen and Clifton, David A. and Dong, Yining and Zhang, Yuan-Ting},
+  journal={IEEE Transactions on Pattern Analysis and Machine Intelligence}, 
+  title={Semi-Supervised Learning for Multi-Label Cardiovascular Diseases Prediction: A Multi-Dataset Study}, 
+  year={2023},
+  volume={},
+  number={},
+  pages={1-17},
+  doi={10.1109/TPAMI.2023.3342828}}

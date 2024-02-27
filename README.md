@@ -1,6 +1,6 @@
 Semi-Supervised Learning for Multi-Label Cardiovascular Diseases Prediction: A Multi-Dataset Study
 =
-* A Pytorch implementation of our under-reviewed paper 
+* A Pytorch implementation of our paper 
 Semi-Supervised Learning for Multi-Label Cardiovascular Diseases Prediction: A Multi-Dataset Study
 * [IEEE TPAMI](https://ieeexplore.ieee.org/document/10360273)
 # Preliminaries

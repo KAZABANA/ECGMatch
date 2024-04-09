@@ -17,8 +17,10 @@ Semi-Supervised Learning for Multi-Label Cardiovascular Diseases Prediction: A M
   author={Zhou, Rushuang and Lu, Lei and Liu, Zijun and Xiang, Ting and Liang, Zhen and Clifton, David A. and Dong, Yining and Zhang, Yuan-Ting},
   journal={IEEE Transactions on Pattern Analysis and Machine Intelligence}, 
   title={Semi-Supervised Learning for Multi-Label Cardiovascular Diseases Prediction: A Multi-Dataset Study}, 
-  year={2023},
-  volume={},
-  number={},
-  pages={1-17},
+  year={2024},
+  volume={46},
+  number={5},
+  pages={3305-3320},
+  keywords={Electrocardiography;Predictive models;Data models;Training;Semisupervised learning;Deep learning;Correlation;Cardiovascular diseases;electrocardiograph;multi-label learning;semi-supervised learning},
   doi={10.1109/TPAMI.2023.3342828}}
+
